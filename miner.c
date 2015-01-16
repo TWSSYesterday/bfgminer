@@ -4159,7 +4159,7 @@ void get_statline3(char *buf, size_t bufsz, struct cgpu_info *cgpu, bool for_cur
 			slave->utility = slave->accepted / dev_runtime * 60;
 			slave->utility_diff1 = slave->diff_accepted / dev_runtime * 60;
 			
-			rolling += slave->rolling;
+			rolling += drv->get_proc_rolling_hashrate ? drv->get_proc_rolling_hashrate(slave) : slave->rolling;
 			mhashes += slave->total_mhashes;
 			if (opt_weighed_stats)
 			{
@@ -4183,9 +4183,6 @@ void get_statline3(char *buf, size_t bufsz, struct cgpu_info *cgpu, bool for_cur
 				break;
 		}
 	}
-
-	if ((cgpu->device == cgpu) && (drv->get_master_rolling_hashrate))
-		rolling = drv->get_master_rolling_hashrate(cgpu);
 
 	double wtotal = (waccepted + wnotaccepted);
 	
@@ -10508,8 +10505,11 @@ enum test_nonce2_result _test_nonce2(struct work *work, uint32_t nonce, bool che
 			{
 				applog(LOG_DEBUG, "Stratum pool %u target has changed since work job issued, checking that too",
 				       pool->pool_no);
-				if (hash_target_check_v(work->hash, pool->next_target))
+				if (hash_target_check_v(work->hash, pool->next_target)) {
 					high_hash = false;
+					memcpy(work->target, pool->next_target, sizeof(work->target));
+					calc_diff(work, 0);
+				}
 			}
 		}
 		if (high_hash)
